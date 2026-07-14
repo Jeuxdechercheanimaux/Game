@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Chasse au Trésor GPS & Boussole Réparée</title>
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --bg-dark: #0f172a;
+            --card-bg: #1e293b;
+            --accent: #10b981;
+            --danger: #ef4444;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            user-select: none;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: var(--bg-dark);
+            color: #f8fafc;
+        }
+
+        /* --- ÉCRAN D'ACCUEIL --- */
+        #setup-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            background: radial-gradient(circle, #1e1b4b 0%, #0f172a 100%);
+            z-index: 10;
+            text-align: center;
+        }
+
+        .config-card {
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            max-width: 400px;
+            width: 100%;
+            border: 1px solid #334155;
+        }
+
+        h1 {
+            font-size: 1.8rem;
+            margin-bottom: 10px;
+            color: #f1f5f9;
+        }
+
+        p.subtitle {
+            font-size: 0.9rem;
+            color: #94a3b8;
+            margin-bottom: 25px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #cbd5e1;
+        }
+
+        input[type="number"] {
+            width: 100%;
+            padding: 12px;
+            border-radius: 10px;
+            border: 2px solid #475569;
+            background: #0f172a;
+            color: white;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 14px;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+        }
+
+        .btn:hover {
+            background-color: var(--primary-hover);
+        }
+
+        /* --- ZONE DE JEU (PANORAMA 360°) --- */
+        #game-screen {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        #room-panoramic {
+            position: absolute;
+            width: 3600px; /* 10px par degré */
+            height: 100%;
+            background: linear-gradient(90deg, 
+                #1e1e38 0%, #2e1a47 25%, 
+                #1a2e40 50%, #2d1e3f 75%, 
+                #1e1e38 100%
+            );
+            left: 0;
+            top: 0;
+            transition: transform 0.1s ease-out;
+        }
+
+        .decor {
+            position: absolute;
+            bottom: 12%;
+            font-size: 4.5rem;
+            opacity: 0.25;
+            transform: translateX(-50%);
+        }
+
+        /* HUD */
+        #game-hud {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        .hud-item {
+            background: rgba(15, 23, 42, 0.85);
+            padding: 8px 15px;
+            border-radius: 30px;
+            font-weight: bold;
+            font-size: 0.9rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(5px);
+        }
+
+        #compass-bar {
+            position: absolute;
+            top: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(15, 23, 42, 0.9);
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            border: 1px solid var(--primary);
+            color: #f1f5f9;
+            z-index: 5;
+            text-align: center;
+            min-width: 220px;
+        }
+
+        /* Radar GPS */
+        #radar-container {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            width: 120px;
+            height: 120px;
+            background: rgba(15, 23, 42, 0.85);
+            border: 2px solid var(--primary);
+            border-radius: 50%;
+            z-index: 5;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+        }
+
+        #radar-sweep {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: conic-gradient(from 0deg, rgba(79, 70, 229, 0.35) 0deg, transparent 180deg);
+            border-radius: 50%;
+            animation: sweep 2.5s linear infinite;
+        }
+
+        #radar-compass {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            transition: transform 0.1s ease-out;
+        }
+
+        .radar-blip {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background-color: var(--danger);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 8px var(--danger);
+        }
+
+        .radar-blip.proche {
+            background-color: var(--accent);
+            box-shadow: 0 0 10px var(--accent);
+        }
+
+        .compass-direction {
+            position: absolute;
+            font-size: 10px;
+            font-weight: bold;
+            color: #94a3b8;
+        }
+
+        /* Animaux */
+        .animal-container {
+            position: absolute;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transform: translate(-50%, -50%);
+            cursor: pointer;
+            z-index: 2;
+        }
+
+        .animal-emoji {
+            font-size: 5rem;
+            filter: drop-shadow(0 6px 12px rgba(0,0,0,0.6));
+            animation: float 3s ease-in-out infinite;
+        }
+
+        .animal-distance {
+            background: rgba(15, 23, 42, 0.9);
+            color: white;
+            padding: 4px 10px;
+            border-radius: 10px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            margin-top: 5px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .animal-distance.proche {
+            background: var(--accent);
+            border-color: white;
+        }
+
+        /* --- ÉCRAN DE FIN --- */
+        #end-screen {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.98);
+            z-index: 10;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .captured-gallery {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: center;
+            margin: 25px 0;
+        }
+
+        .captured-item {
+            background: #1e293b;
+            padding: 15px;
+            border-radius: 12px;
+            font-size: 2.5rem;
+            border: 2px solid #334155;
+        }
+
+        #flash {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: white;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 9;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(-5px); }
+            50% { transform: translateY(5px); }
+        }
+
+        @keyframes sweep {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        #drag-instruction {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            pointer-events: none;
+            border: 1px solid rgba(255,255,255,0.1);
+            text-align: center;
+            max-width: 80%;
+        }
+
+        /* Warning HTTPS */
+        #https-warning {
+            color: #fbbf24;
+            font-size: 0.8rem;
+            margin-top: 15px;
+            display: block;
+            background: rgba(251, 191, 36, 0.1);
+            padding: 8px;
+            border-radius: 8px;
+            border: 1px solid rgba(251, 191, 36, 0.2);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="flash"></div>
+
+    <!-- 1. Configuration initiale -->
+    <div id="setup-screen">
+        <div class="config-card">
+            <h1>Chasse au Trésor Boussole & GPS</h1>
+            <p class="subtitle">Bougez et tournez sur vous-même pour détecter les animaux !</p>
+            
+            <div class="input-group">
+                <label for="room-size">Rayon de recherche (Mètres) :</label>
+                <input type="number" id="room-size" value="15" min="5" max="100">
+            </div>
+
+            <div class="input-group">
+                <label for="game-duration">Durée de la partie (Secondes) :</label>
+                <input type="number" id="game-duration" value="60" min="10" max="300">
+            </div>
+
+            <button class="btn" id="btn-start">Autoriser les Capteurs & Jouer</button>
+            <span id="https-warning">⚠️ Note : L'appareil doit être sur un site en <b>HTTPS</b> pour que la boussole fonctionne.</span>
+        </div>
+    </div>
+
+    <!-- 2. Écran de jeu principal -->
+    <div id="game-screen">
+        <div id="game-hud">
+            <div class="hud-item" id="hud-timer">Temps : --s</div>
+            <div class="hud-item" id="hud-score">Capturés : 0</div>
+        </div>
+
+        <div id="compass-bar">Initialisation boussole...</div>
+
+        <!-- Espace virtuel panoramique -->
+        <div id="room-panoramic">
+            <div class="decor" style="left: 0px;">🧭 Nord (0°)</div>
+            <div class="decor" style="left: 900px;">🧭 Est (90°)</div>
+            <div class="decor" style="left: 1800px;">🧭 Sud (180°)</div>
+            <div class="decor" style="left: 2700px;">🧭 Ouest (270°)</div>
+            <div class="decor" style="left: 3600px;">🧭 Nord (0°)</div>
+        </div>
+
+        <div id="drag-instruction">
+            Tournez sur vous-même pour regarder autour de vous !<br>
+            <span style="font-size:0.7rem; color:#94a3b8;">(Glissez le doigt si votre appareil n'a pas de boussole)</span>
+        </div>
+
+        <!-- Radar -->
+        <div id="radar-container">
+            <div id="radar-sweep"></div>
+            <div id="radar-compass">
+                <span class="compass-direction" style="top: 2px; left: 50%; transform: translateX(-50%);">N</span>
+                <span class="compass-direction" style="bottom: 2px; left: 50%; transform: translateX(-50%);">S</span>
+                <span class="compass-direction" style="right: 5px; top: 50%; transform: translateY(-50%);">E</span>
+                <span class="compass-direction" style="left: 5px; top: 50%; transform: translateY(-50%);">O</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. Résultats de fin de partie -->
+    <div id="end-screen">
+        <h1>Chasse Terminée !</h1>
+        <p id="final-score" style="font-size: 1.2rem; margin: 15px 0;"></p>
+        
+        <h3>Votre album photo :</h3>
+        <div class="captured-gallery" id="gallery"></div>
+
+        <button class="btn" id="btn-restart" style="max-width: 250px;">Rejouer</button>
+    </div>
+
+    <script>
+        const emojisList = ['🦁', '🐯', '🐼', '🐨', '🦊', '🐰', '🐵', '🦄', '🐸', '🐱'];
+        let activeAnimals = [];
+        let capturedAnimals = [];
+        let score = 0;
+        let gameTimer = null;
+        let timeLeft = 60;
+        let searchRadius = 15; 
+        
+        let userLat = null;
+        let userLon = null;
+        let gpsWatchId = null;
+
+        let currentYaw = 0; 
+        const roomWidth = 3600; 
+        const viewportWidth = window.innerWidth;
+
+        const setupScreen = document.getElementById('setup-screen');
+        const gameScreen = document.getElementById('game-screen');
+        const endScreen = document.getElementById('end-screen');
+        const roomPanoramic = document.getElementById('room-panoramic');
+        const radarCompass = document.getElementById('radar-compass');
+        const hudTimer = document.getElementById('hud-timer');
+        const hudScore = document.getElementById('hud-score');
+        const compassBar = document.getElementById('compass-bar');
+        const flash = document.getElementById('flash');
+        const gallery = document.getElementById('gallery');
+
+        // Alerte si non-HTTPS
+        if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
+            document.getElementById('https-warning').innerHTML = "🔴 <b>Erreur :</b> Vous n'êtes pas en HTTPS ! Les capteurs d'orientation ne répondront pas.";
+        }
+
+        document.getElementById('btn-start').addEventListener('click', async () => {
+            searchRadius = parseFloat(document.getElementById('room-size').value) || 15;
+            timeLeft = parseInt(document.getElementById('game-duration').value) || 60;
+
+            // ÉTAPE CRUCIALE : Demander la permission de la boussole IMMÉDIATEMENT au clic
+            await requestOrientationPermission();
+
+            // Demander ensuite le GPS
+            if ("geolocation" in navigator) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        userLat = position.coords.latitude;
+                        userLon = position.coords.longitude;
+                        startGame();
+                    },
+                    (error) => {
+                        alert("GPS indisponible (erreur ou refus). Simulation de position active.");
+                        userLat = 48.8566;
+                        userLon = 2.3522;
+                        startGame();
+                    },
+                    { enableHighAccuracy: true, timeout: 5000 }
+                );
+            } else {
+                alert("Votre navigateur ne supporte pas le GPS.");
+                userLat = 48.8566;
+                userLon = 2.3522;
+                startGame();
+            }
+        });
+
+        document.getElementById('btn-restart').addEventListener('click', () => {
+            endScreen.style.display = 'none';
+            setupScreen.style.display = 'flex';
+        });
+
+        function startGame() {
+            setupScreen.style.display = 'none';
+            gameScreen.style.display = 'block';
+            
+            score = 0;
+            capturedAnimals = [];
+            hudScore.textContent = `Capturés : ${score}`;
+            hudTimer.textContent = `Temps : ${timeLeft}s`;
+
+            startGPSTracking();
+            generateGPSAnimals();
+
+            clearInterval(gameTimer);
+            gameTimer = setInterval(() => {
+                timeLeft--;
+                hudTimer.textContent = `Temps : ${timeLeft}s`;
+                if (timeLeft <= 0) endGame();
+            }, 1000);
+
+            updateSceneRotation();
+        }
+
+        // --- AUTORISATION ET ÉCOUTE DE LA BOUSSOLE ---
+        async function requestOrientationPermission() {
+            if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                try {
+                    const permissionState = await DeviceOrientationEvent.requestPermission();
+                    if (permissionState === 'granted') {
+                        window.addEventListener('deviceorientationabsolute', handleOrientation, true);
+                    } else {
+                        alert("Accès boussole refusé. Utilisez le doigt pour glisser sur l'écran.");
+                    }
+                } catch (error) {
+                    console.error("Erreur d'accès boussole : ", error);
+                }
+            } else {
+                // Pour Android / autres navigateurs sans demande d'autorisation explicite
+                window.addEventListener('deviceorientationabsolute', handleOrientation, true);
+                window.addEventListener('deviceorientation', handleOrientation, true);
+            }
+        }
+
+        function handleOrientation(event) {
+            // webitCompassHeading = iOS boussole absolue (0 = Nord)
+            // alpha = Android boussole (nécessite souvent de soustraire pour obtenir le nord réel)
+            let heading = event.webkitCompassHeading;
+            
+            if (heading === undefined || heading === null) {
+                if (event.absolute === true || event.absolute === undefined) {
+                    // Calcul pour Android
+                    heading = (360 - event.alpha) % 360;
+                }
+            }
+
+            if (heading !== undefined && heading !== null) {
+                currentYaw = heading;
+                updateSceneRotation();
+            }
+        }
+
+        // --- SUIVI GPS ---
+        function startGPSTracking() {
+            if ("geolocation" in navigator) {
+                gpsWatchId = navigator.geolocation.watchPosition(
+                    (position) => {
+                        userLat = position.coords.latitude;
+                        userLon = position.coords.longitude;
+                        updateDistancesAndAngles();
+                    },
+                    (err) => console.warn(err),
+                    { enableHighAccuracy: true, maximumAge: 0 }
+                );
+            }
+        }
+
+        function generateGPSAnimals() {
+            roomPanoramic.querySelectorAll('.animal-container').forEach(el => el.remove());
+            activeAnimals = [];
+
+            const numAnimals = Math.min(10, Math.max(3, Math.round(searchRadius * 0.4)));
+
+            for (let i = 0; i < numAnimals; i++) {
+                const angle = Math.random() * 360; 
+                const distance = 3 + Math.random() * (searchRadius - 3); 
+
+                const latOffset = (distance * Math.cos(angle * Math.PI / 180)) / 111111;
+                const lonOffset = (distance * Math.sin(angle * Math.PI / 180)) / (111111 * Math.cos(userLat * Math.PI / 180));
+
+                const animal = {
+                    id: i,
+                    emoji: emojisList[Math.floor(Math.random() * emojisList.length)],
+                    lat: userLat + latOffset,
+                    lon: userLon + lonOffset,
+                    captured: false
+                };
+
+                activeAnimals.push(animal);
+                spawnAnimalInDOM(animal);
+            }
+            updateDistancesAndAngles();
+        }
+
+        function spawnAnimalInDOM(animal) {
+            const container = document.createElement('div');
+            container.className = 'animal-container';
+            container.id = `animal-container-${animal.id}`;
+            
+            const emojiEl = document.createElement('div');
+            emojiEl.className = 'animal-emoji';
+            emojiEl.textContent = animal.emoji;
+
+            const distanceEl = document.createElement('div');
+            distanceEl.className = 'animal-distance';
+            distanceEl.id = `animal-dist-text-${animal.id}`;
+            distanceEl.textContent = '-- m';
+
+            container.appendChild(emojiEl);
+            container.appendChild(distanceEl);
+
+            container.addEventListener('click', () => {
+                const dist = calculateDistance(userLat, userLon, animal.lat, animal.lon);
+                if (dist <= 3.5) { 
+                    captureAnimal(animal);
+                } else {
+                    alert(`Trop loin ! Approchez-vous encore (Distance : ${Math.round(dist)}m)`);
+                }
+            });
+
+            roomPanoramic.appendChild(container);
+        }
+
+        function captureAnimal(animal) {
+            if (animal.captured) return;
+
+            animal.captured = true;
+            score++;
+            hudScore.textContent = `Capturés : ${score}`;
+            capturedAnimals.push(animal.emoji);
+
+            flash.style.opacity = '1';
+            setTimeout(() => { flash.style.opacity = '0'; }, 150);
+
+            const el = document.getElementById(`animal-container-${animal.id}`);
+            if (el) {
+                el.style.transform = 'translate(-50%, -50%) scale(0) rotate(360deg)';
+                el.style.opacity = '0';
+                setTimeout(() => el.remove(), 300);
+            }
+
+            updateRadar();
+        }
+
+        function updateDistancesAndAngles() {
+            activeAnimals.forEach(animal => {
+                if (animal.captured) return;
+
+                const distance = calculateDistance(userLat, userLon, animal.lat, animal.lon);
+                const bearing = calculateBearing(userLat, userLon, animal.lat, animal.lon);
+
+                animal.distance = distance;
+                animal.bearing = bearing; 
+
+                const container = document.getElementById(`animal-container-${animal.id}`);
+                const textDist = document.getElementById(`animal-dist-text-${animal.id}`);
+
+                if (container && textDist) {
+                    const posX = (bearing / 360) * roomWidth;
+                    container.style.left = `${posX}px`;
+                    
+                    const normalizedDist = Math.min(1, distance / searchRadius);
+                    const size = Math.max(1.5, 5 * (1 - normalizedDist * 0.7));
+                    container.querySelector('.animal-emoji').style.fontSize = `${size}rem`;
+                    container.style.top = `${45 + (normalizedDist * 20)}%`;
+
+                    textDist.textContent = `${Math.round(distance)} m`;
+                    if (distance <= 3.5) {
+                        textDist.className = "animal-distance proche";
+                        textDist.textContent = `CAPTURE POSSIBLE !`;
+                    } else {
+                        textDist.className = "animal-distance";
+                    }
+                }
+            });
+
+            updateRadar();
+        }
+
+        // --- MATHS GPS ---
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371000; 
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = 
+                Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+                Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+
+        function calculateBearing(lat1, lon1, lat2, lon2) {
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const lat1Rad = lat1 * Math.PI / 180;
+            const lat2Rad = lat2 * Math.PI / 180;
+
+            const y = Math.sin(dLon) * Math.cos(lat2Rad);
+            const x = Math.cos(lat1Rad) * Math.sin(lat2Rad) -
+                      Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLon);
+
+            let brng = Math.atan2(y, x) * 180 / Math.PI;
+            return (brng + 360) % 360;
+        }
+
+        // --- DRAG MANUEL DE SECOURS ---
+        let isDragging = false;
+        let startX = 0;
+
+        window.addEventListener('mousedown', (e) => { isDragging = true; startX = e.clientX; });
+        window.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            const dx = e.clientX - startX;
+            startX = e.clientX;
+            currentYaw = (currentYaw + (dx * 0.25) + 360) % 360;
+            updateSceneRotation();
+        });
+        window.addEventListener('mouseup', () => isDragging = false);
+
+        window.addEventListener('touchstart', (e) => { isDragging = true; startX = e.touches[0].clientX; });
+        window.addEventListener('touchmove', (e) => {
+            if (!isDragging) return;
+            const dx = e.touches[0].clientX - startX;
+            startX = e.touches[0].clientX;
+            currentYaw = (currentYaw + (dx * 0.25) + 360) % 360;
+            updateSceneRotation();
+        });
+        window.addEventListener('touchend', () => isDragging = false);
+
+        // --- RENDU GRAPHIQUE ---
+        function updateSceneRotation() {
+            const offsetInPixels = (currentYaw / 360) * roomWidth;
+            const finalLeft = -offsetInPixels + (viewportWidth / 2);
+            roomPanoramic.style.transform = `translateX(${finalLeft}px)`;
+
+            // Radar
+            radarCompass.style.transform = `rotate(${-currentYaw}deg)`;
+
+            // HUD Boussole
+            let directions = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO', 'N'];
+            let index = Math.round((currentYaw % 360) / 45);
+            compassBar.innerHTML = `Boussole : ${Math.round(currentYaw)}° ${directions[index]}`;
+        }
+
+        function updateRadar() {
+            radarCompass.querySelectorAll('.radar-blip').forEach(el => el.remove());
+
+            activeAnimals.forEach(animal => {
+                if (animal.captured) return;
+
+                const angleRad = (animal.bearing - 90) * (Math.PI / 180); 
+                const distanceRatio = Math.min(1, animal.distance / searchRadius);
+                const visualDistance = distanceRatio * 45; 
+
+                const x = 50 + Math.cos(angleRad) * visualDistance;
+                const y = 50 + Math.sin(angleRad) * visualDistance;
+
+                const blip = document.createElement('div');
+                blip.className = `radar-blip ${animal.distance <= 3.5 ? 'proche' : ''}`;
+                blip.style.left = `${x}%`;
+                blip.style.top = `${y}%`;
+
+                radarCompass.appendChild(blip);
+            });
+        }
+
+        function endGame() {
+            clearInterval(gameTimer);
+            if (gpsWatchId) navigator.geolocation.clearWatch(gpsWatchId);
+            window.removeEventListener('deviceorientationabsolute', handleOrientation);
+            window.removeEventListener('deviceorientation', handleOrientation);
+            
+            gameScreen.style.display = 'none';
+            endScreen.style.display = 'flex';
+
+            document.getElementById('final-score').textContent = `Félicitations ! Vous avez capturé ${score} animaux !`;
+            
+            gallery.innerHTML = '';
+            if (capturedAnimals.length === 0) {
+                gallery.innerHTML = '<p style="color: #94a3b8;">Aucun animal capturé... Marchez à l\'extérieur !</p>';
+            } else {
+                capturedAnimals.forEach(emoji => {
+                    const item = document.createElement('div');
+                    item.className = 'captured-item';
+                    item.textContent = emoji;
+                    gallery.appendChild(item);
+                });
+            }
+        }
+    </script>
+</body>
+</html>
